@@ -37,7 +37,7 @@ export default function LoginPage() {
             💬
           </div>
           <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
-            MariePhone
+            Tribe Harbor Phone
           </h1>
           <p className="text-sm text-neutral-500">Trifecta Benefits</p>
         </div>

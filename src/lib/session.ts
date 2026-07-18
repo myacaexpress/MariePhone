@@ -6,7 +6,7 @@
  * Edge runtime (middleware).
  */
 
-export const SESSION_COOKIE = "mariephone_session";
+export const SESSION_COOKIE = "tribeharborphone_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
 async function hmacHex(secret: string, message: string): Promise<string> {

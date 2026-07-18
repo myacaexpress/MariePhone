@@ -1,4 +1,4 @@
-# MariePhone
+# Tribe Harbor Phone
 
 A browser softphone + messaging app for the Trifecta Benefits business number.
 Marie signs in, sees iMessage-style threads (individual and group texts), sends
@@ -29,8 +29,8 @@ All Twilio webhook routes validate the `X-Twilio-Signature` header.
 
 ## Environment variables
 
-Copy these into `.env.local` for local dev (see `src/lib/env.ts` for the full
-reference):
+Copy `.env.example` to `.env.local` for local dev (see `src/lib/env.ts` for
+the full reference):
 
 | Variable | What it is |
 | --- | --- |
@@ -80,19 +80,18 @@ Inbound webhooks need a public URL; use a tunnel (e.g. `ngrok http 3000`) and
 point the Twilio URLs and `APP_BASE_URL` at it, or test inbound only on the
 deployed app.
 
+`/demo` (behind the same login) renders the real UI with clearly-labeled
+synthetic data — useful for design review before credentials exist. Append
+`?call=incoming` to preview the incoming-call banner.
+
 ## Deploy (Cloud Run)
 
-```bash
-gcloud run deploy mariephone \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-secrets "TWILIO_ACCOUNT_SID=mariephone-account-sid:latest,…"
-```
-
-Put every secret in Secret Manager (never in the image). After the first
-deploy, set `APP_BASE_URL` to the service URL and update the four Twilio
-webhook URLs to match.
+See [docs/deploy.md](docs/deploy.md) for the full runbook: Secret Manager
+setup (no secret values in shell history), the deploy command, setting
+`APP_BASE_URL`, and pointing the three console-configured Twilio webhook URLs
+(TwiML App voice, number voice, Conversations service webhook) at the service.
+The fourth route, `/api/voice/inbound-status`, is reached via a relative TwiML
+`action` and never appears in the console.
 
 ## Notes
 

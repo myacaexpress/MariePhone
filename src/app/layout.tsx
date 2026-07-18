@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MariePhone",
+  title: "Tribe Harbor Phone",
   description: "Trifecta Benefits calling and messaging",
 };
 

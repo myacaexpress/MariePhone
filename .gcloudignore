@@ -1,0 +1,9 @@
+# Explicit upload exclusions for `gcloud run deploy --source .`
+# (do not rely on .gitignore fallback for secret hygiene)
+#!include:.gitignore
+.git
+.gitignore
+.env*
+.claude/
+docs/
+README.md
