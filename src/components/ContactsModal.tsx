@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatPhone } from "@/lib/format";
 import { normalizePhone, type Contact } from "@/lib/contacts";
 import Avatar from "./Avatar";
 import { useTwilio } from "./TwilioProvider";
 
 const EMPTY_DRAFT = { id: "", name: "", phone: "", group: "" };
+type PendingAction =
+  | { kind: "close" }
+  | { kind: "back" }
+  | { kind: "new" }
+  | { kind: "edit"; contact: Contact };
 
 export default function ContactsModal({
   onClose,
@@ -20,14 +25,75 @@ export default function ContactsModal({
   const initialContact = normalizedInitialPhone
     ? contacts.find((contact) => contact.phone === normalizedInitialPhone) ?? null
     : null;
+  const initialDraft = initialContact ?? {
+    ...EMPTY_DRAFT,
+    phone: normalizedInitialPhone,
+  };
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Contact | null>(initialContact);
-  const [draft, setDraft] = useState(
-    initialContact ?? { ...EMPTY_DRAFT, phone: normalizedInitialPhone },
-  );
+  const [draft, setDraft] = useState(initialDraft);
+  const [baseline, setBaseline] = useState(initialDraft);
   const [showEditor, setShowEditor] = useState(Boolean(normalizedInitialPhone));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const launchedFromConversation = Boolean(normalizedInitialPhone);
+  const isDirty =
+    draft.name !== baseline.name ||
+    draft.phone !== baseline.phone ||
+    draft.group !== baseline.group;
+
+  const performAction = useCallback((action: PendingAction) => {
+    if (action.kind === "close") {
+      onClose();
+      return;
+    }
+    if (action.kind === "back") {
+      setDraft(baseline);
+      setShowEditor(false);
+      setError(null);
+      return;
+    }
+    if (action.kind === "new") {
+      setEditing(null);
+      setDraft(EMPTY_DRAFT);
+      setBaseline(EMPTY_DRAFT);
+      setError(null);
+      setShowEditor(true);
+      return;
+    }
+    setEditing(action.contact);
+    setDraft(action.contact);
+    setBaseline(action.contact);
+    setError(null);
+    setShowEditor(true);
+  }, [baseline, onClose]);
+
+  const requestAction = useCallback((action: PendingAction) => {
+    if (isDirty) {
+      setPendingAction(action);
+    } else {
+      performAction(action);
+    }
+  }, [isDirty, performAction]);
+
+  const requestClose = useCallback(() => {
+    requestAction({ kind: "close" });
+  }, [requestAction]);
+
+  const requestBackToContacts = useCallback(() => {
+    requestAction({ kind: "back" });
+  }, [requestAction]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      requestClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [requestClose]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -50,17 +116,11 @@ export default function ContactsModal({
   }, [filtered]);
 
   function startNew() {
-    setEditing(null);
-    setDraft(EMPTY_DRAFT);
-    setError(null);
-    setShowEditor(true);
+    requestAction({ kind: "new" });
   }
 
   function startEdit(contact: Contact) {
-    setEditing(contact);
-    setDraft(contact);
-    setError(null);
-    setShowEditor(true);
+    requestAction({ kind: "edit", contact });
   }
 
   async function save(e: React.FormEvent) {
@@ -85,6 +145,12 @@ export default function ContactsModal({
       await saveContact(savedContact);
       setEditing(savedContact);
       setDraft(savedContact);
+      setBaseline(savedContact);
+      if (launchedFromConversation) {
+        onClose();
+      } else {
+        setShowEditor(false);
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save contact.");
     } finally {
@@ -100,7 +166,9 @@ export default function ContactsModal({
       await deleteContact(editing.id);
       setEditing(null);
       setDraft(EMPTY_DRAFT);
+      setBaseline(EMPTY_DRAFT);
       setShowEditor(false);
+      if (launchedFromConversation) onClose();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Could not delete contact.");
     } finally {
@@ -109,8 +177,11 @@ export default function ContactsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:p-4" onClick={onClose}>
+    <div data-testid="contacts-backdrop" className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:p-4" onClick={requestClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Contacts"
         className="flex h-dvh w-full max-w-[720px] overflow-hidden shadow-2xl sm:h-[min(680px,90vh)] sm:rounded-[24px]"
         style={{ background: "var(--bg-main)", border: "1px solid var(--hairline)" }}
         onClick={(event) => event.stopPropagation()}
@@ -123,7 +194,7 @@ export default function ContactsModal({
             </div>
             <div className="flex items-center gap-1">
               <button onClick={startNew} aria-label="Add contact" className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full text-[28px] font-light text-[#0a7aff] transition-colors hover:bg-black/[0.05] active:bg-black/[0.1]">+</button>
-              <button onClick={onClose} aria-label="Close contacts" className="flex h-11 w-11 items-center justify-center rounded-full text-[24px] text-[color:var(--text-secondary)] sm:hidden">×</button>
+              <button onClick={requestClose} aria-label="Close contacts and return to Messages" className="flex min-h-11 items-center justify-center rounded-[10px] px-2 text-[15px] font-semibold text-[#0a7aff] transition-colors hover:bg-black/[0.05] active:bg-black/[0.1]">Close</button>
             </div>
           </header>
           <div className="px-4 pb-3">
@@ -151,10 +222,10 @@ export default function ContactsModal({
 
         <section className={`${showEditor ? "flex" : "hidden sm:flex"} min-w-0 flex-1 flex-col`}>
           <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center px-2 pt-[env(safe-area-inset-top)] sm:px-4 sm:pt-0" style={{ borderBottom: "1px solid var(--hairline)" }}>
-            <button type="button" onClick={() => setShowEditor(false)} className="flex min-h-11 items-center justify-self-start px-2 text-[15px] text-[#0a7aff] sm:hidden">
+            <button type="button" onClick={requestBackToContacts} className="flex min-h-11 items-center justify-self-start px-2 text-[15px] text-[#0a7aff] sm:hidden">
               <span aria-hidden className="mr-1 text-[24px] font-light">‹</span> Contacts
             </button>
-            <button type="button" onClick={onClose} className="hidden min-h-11 items-center justify-self-start px-2 text-[15px] text-[#0a7aff] sm:flex">Cancel</button>
+            <button type="button" onClick={requestClose} className="hidden min-h-11 items-center justify-self-start px-2 text-[15px] text-[#0a7aff] sm:flex">Close</button>
             <h3 className="text-[15px] font-semibold">{editing ? "Edit Contact" : "New Contact"}</h3>
             <button type="submit" form="contact-form" disabled={busy} className="min-h-11 justify-self-end px-2 text-[15px] font-semibold text-[#0a7aff] disabled:opacity-50">{busy ? "Saving…" : "Done"}</button>
           </header>
@@ -174,6 +245,46 @@ export default function ContactsModal({
           </form>
         </section>
       </div>
+      {pendingAction && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center"
+          onClick={() => setPendingAction(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="discard-contact-title"
+            aria-describedby="discard-contact-description"
+            className="w-full max-w-[320px] overflow-hidden rounded-[18px] bg-[color:var(--bg-main)] text-center shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="px-6 pb-5 pt-6">
+              <h3 id="discard-contact-title" className="text-[17px] font-semibold">Unsaved Changes</h3>
+              <p id="discard-contact-description" className="mt-1.5 text-[13px] leading-snug text-[color:var(--text-secondary)]">
+                Your contact edits haven’t been saved.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingAction(null)}
+              className="min-h-12 w-full border-t border-[color:var(--hairline)] text-[16px] font-semibold text-[#0a7aff]"
+            >
+              Keep Editing
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const action = pendingAction;
+                setPendingAction(null);
+                performAction(action);
+              }}
+              className="min-h-12 w-full border-t border-[color:var(--hairline)] text-[16px] text-red-500"
+            >
+              Discard Changes
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
