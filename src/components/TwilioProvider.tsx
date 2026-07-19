@@ -21,6 +21,8 @@ export type VoiceState =
 interface TwilioContextValue {
   status: "loading" | "ready" | "error";
   errorMessage: string | null;
+  voiceStatus: "loading" | "ready" | "error";
+  voiceErrorMessage: string | null;
   identity: string;
   businessNumber: string;
   conversations: Conversation[];
@@ -55,6 +57,25 @@ async function fetchToken(): Promise<{
   return res.json();
 }
 
+function describeTwilioError(error: unknown): string {
+  const value = error as {
+    code?: number;
+    message?: string;
+    description?: string;
+    error?: unknown;
+  } | null;
+  if (value?.error && value.error !== error) {
+    return describeTwilioError(value.error);
+  }
+  if (value?.code === 20101 || value?.message?.includes("AccessTokenInvalid")) {
+    return "Twilio rejected the app credential. Replace the API key, then refresh.";
+  }
+  if (value?.message?.includes("Twilsock has disconnected")) {
+    return "Twilio messaging could not connect. Check the API key and network, then refresh.";
+  }
+  return value?.description ?? value?.message ?? "Twilio failed to initialize";
+}
+
 function sortByRecent(conversations: Conversation[]): Conversation[] {
   return [...conversations].sort((a, b) => {
     const ta = (a.lastMessage?.dateCreated ?? a.dateCreated)?.getTime() ?? 0;
@@ -68,6 +89,12 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
     "loading",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [voiceErrorMessage, setVoiceErrorMessage] = useState<string | null>(
+    null,
+  );
   const [identity, setIdentity] = useState("");
   const [businessNumber, setBusinessNumber] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -106,7 +133,17 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
           }
           if (!cancelled) setConversations(sortByRecent(items));
         };
-        conversationsClient.on("initialized", refreshList);
+        const messagingReady = new Promise<void>((resolve, reject) => {
+          conversationsClient?.on("initialized", async () => {
+            try {
+              await refreshList();
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          });
+          conversationsClient?.on("initFailed", ({ error }) => reject(error));
+        });
         conversationsClient.on("conversationJoined", refreshList);
         conversationsClient.on("conversationLeft", refreshList);
         conversationsClient.on("conversationUpdated", () => {
@@ -127,36 +164,55 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
           deviceRef.current?.updateToken(fresh.token);
         });
 
-        // --- Voice ---
-        device = new Device(token, {
-          codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-        });
-        deviceRef.current = device;
-        device.on("incoming", (call: Call) => {
-          // One call at a time: auto-reject if busy.
-          if (voiceRef.current.kind !== "idle") {
-            call.reject();
-            return;
-          }
-          const from = call.parameters.From ?? "Unknown";
-          call.on("disconnect", () => setVoice({ kind: "idle" }));
-          call.on("cancel", () => setVoice({ kind: "idle" }));
-          call.on("reject", () => setVoice({ kind: "idle" }));
-          setVoice({ kind: "incoming", call, from });
-        });
-        device.on("error", () => {
-          // Device-level errors (e.g. network); drop back to idle.
-          setVoice((v) => (v.kind === "idle" ? v : { kind: "idle" }));
-        });
-        await device.register();
+        await messagingReady;
+        if (cancelled) return;
+        setStatus("ready");
 
-        if (!cancelled) setStatus("ready");
+        // --- Voice ---
+        // Voice registration is independent of Conversations. If it fails,
+        // messaging remains usable and the call control explains why it is
+        // unavailable instead of replacing the entire app with an error page.
+        try {
+          device = new Device(token, {
+            codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
+          });
+          deviceRef.current = device;
+          device.on("incoming", (call: Call) => {
+            // One call at a time: auto-reject if busy.
+            if (voiceRef.current.kind !== "idle") {
+              call.reject();
+              return;
+            }
+            const from = call.parameters.From ?? "Unknown";
+            call.on("disconnect", () => setVoice({ kind: "idle" }));
+            call.on("cancel", () => setVoice({ kind: "idle" }));
+            call.on("reject", () => setVoice({ kind: "idle" }));
+            setVoice({ kind: "incoming", call, from });
+          });
+          device.on("error", (error) => {
+            setVoice((v) => (v.kind === "idle" ? v : { kind: "idle" }));
+            setVoiceStatus("error");
+            setVoiceErrorMessage(describeTwilioError(error));
+          });
+          await device.register();
+          if (!cancelled) {
+            setVoiceStatus("ready");
+            setVoiceErrorMessage(null);
+          }
+        } catch (error) {
+          device?.destroy();
+          device = null;
+          deviceRef.current = null;
+          if (!cancelled) {
+            setVoiceStatus("error");
+            setVoiceErrorMessage(describeTwilioError(error));
+          }
+        }
       } catch (error) {
         if (!cancelled) {
           setStatus("error");
-          setErrorMessage(
-            error instanceof Error ? error.message : "failed to initialize",
-          );
+          setErrorMessage(describeTwilioError(error));
+          setVoiceStatus("error");
         }
       }
     }
@@ -230,6 +286,8 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
       value={{
         status,
         errorMessage,
+        voiceStatus,
+        voiceErrorMessage,
         identity,
         businessNumber,
         conversations,

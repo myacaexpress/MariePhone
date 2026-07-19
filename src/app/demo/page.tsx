@@ -115,6 +115,8 @@ function DemoInner() {
     () => ({
       status: "ready",
       errorMessage: null,
+      voiceStatus: "ready",
+      voiceErrorMessage: null,
       identity: "marie",
       businessNumber: "+15555550100",
       conversations: DEMO_CONVERSATIONS,

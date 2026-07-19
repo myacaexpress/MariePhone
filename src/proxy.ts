@@ -7,9 +7,15 @@ import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
  * - /api/voice/* and /api/webhooks/* (Twilio webhooks; they carry their own
  *   signature validation inside the route handlers)
  */
-const PUBLIC_PREFIXES = ["/login", "/api/login", "/api/voice", "/api/webhooks"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/login",
+  "/api/health",
+  "/api/voice",
+  "/api/webhooks",
+];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();

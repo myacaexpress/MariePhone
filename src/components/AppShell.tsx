@@ -11,10 +11,12 @@ import VoiceOverlay from "./VoiceOverlay";
 function ToolbarButton({
   label,
   onClick,
+  disabled = false,
   children,
 }: {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -22,7 +24,8 @@ function ToolbarButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#0a7aff] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"
+      disabled={disabled}
+      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#0a7aff] transition-colors hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-white/[0.08]"
     >
       {children}
     </button>
@@ -30,7 +33,13 @@ function ToolbarButton({
 }
 
 export default function AppShell() {
-  const { status, errorMessage, conversations } = useTwilio();
+  const {
+    status,
+    errorMessage,
+    voiceStatus,
+    voiceErrorMessage,
+    conversations,
+  } = useTwilio();
   const [selectedSid, setSelectedSid] = useState<string | null>(null);
   const [showDialer, setShowDialer] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
@@ -67,7 +76,17 @@ export default function AppShell() {
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
           <div className="flex gap-1">
-            <ToolbarButton label="Make a call" onClick={() => setShowDialer(true)}>
+            <ToolbarButton
+              label={
+                voiceStatus === "error"
+                  ? `Calling unavailable: ${voiceErrorMessage ?? "Twilio Voice failed to connect"}`
+                  : voiceStatus === "loading"
+                    ? "Connecting calling…"
+                    : "Make a call"
+              }
+              disabled={voiceStatus !== "ready"}
+              onClick={() => setShowDialer(true)}
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6.6 3.2c.6-.6 1.6-.6 2.2.1l1.9 2.3c.5.6.5 1.5 0 2.1l-1 1.2c-.2.3-.3.7-.1 1 .8 1.6 2.9 3.7 4.5 4.5.3.2.7.1 1-.1l1.2-1c.6-.5 1.5-.5 2.1 0l2.3 1.9c.7.6.7 1.6.1 2.2l-1.2 1.3c-.6.6-1.5.9-2.3.7-3.2-.8-6.2-2.5-8.6-4.9S4.7 9.1 3.9 5.9c-.2-.8 0-1.7.7-2.3l2-.4Z" />
               </svg>
