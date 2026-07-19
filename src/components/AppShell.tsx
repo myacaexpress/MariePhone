@@ -8,6 +8,27 @@ import ThreadList from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
 import VoiceOverlay from "./VoiceOverlay";
 
+function ToolbarButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#0a7aff] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function AppShell() {
   const { status, errorMessage, conversations } = useTwilio();
   const [selectedSid, setSelectedSid] = useState<string | null>(null);
@@ -23,8 +44,10 @@ export default function AppShell() {
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
         <div className="max-w-md text-center">
-          <h1 className="mb-2 text-lg font-semibold">Can’t connect</h1>
-          <p className="text-sm text-neutral-500">{errorMessage}</p>
+          <h1 className="mb-1 text-[17px] font-semibold">Can’t connect</h1>
+          <p className="text-[13px] text-[color:var(--text-secondary)]">
+            {errorMessage}
+          </p>
         </div>
       </main>
     );
@@ -34,26 +57,27 @@ export default function AppShell() {
     <main className="flex h-screen overflow-hidden">
       <VoiceOverlay />
 
-      <aside className="flex w-80 shrink-0 flex-col border-r border-neutral-200 dark:border-neutral-800">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-bold">Messages</h1>
+      <aside
+        className="flex w-[320px] shrink-0 flex-col backdrop-blur-2xl"
+        style={{
+          background: "var(--bg-sidebar)",
+          borderRight: "1px solid var(--hairline)",
+        }}
+      >
+        <div className="flex items-center justify-between px-4 pb-2 pt-4">
+          <h1 className="text-[20px] font-bold tracking-tight">Messages</h1>
           <div className="flex gap-1">
-            <button
-              onClick={() => setShowDialer(true)}
-              title="Make a call"
-              aria-label="Make a call"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              📞
-            </button>
-            <button
-              onClick={() => setShowCompose(true)}
-              title="New message"
-              aria-label="New message"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              ✏️
-            </button>
+            <ToolbarButton label="Make a call" onClick={() => setShowDialer(true)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6.6 3.2c.6-.6 1.6-.6 2.2.1l1.9 2.3c.5.6.5 1.5 0 2.1l-1 1.2c-.2.3-.3.7-.1 1 .8 1.6 2.9 3.7 4.5 4.5.3.2.7.1 1-.1l1.2-1c.6-.5 1.5-.5 2.1 0l2.3 1.9c.7.6.7 1.6.1 2.2l-1.2 1.3c-.6.6-1.5.9-2.3.7-3.2-.8-6.2-2.5-8.6-4.9S4.7 9.1 3.9 5.9c-.2-.8 0-1.7.7-2.3l2-.4Z" />
+              </svg>
+            </ToolbarButton>
+            <ToolbarButton label="New message" onClick={() => setShowCompose(true)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3" y="5" width="13" height="16" rx="3" />
+                <path d="M18.6 3.4a1.9 1.9 0 0 1 2.7 2.7l-7.4 7.4-3.2.5.5-3.2 7.4-7.4Z" fill="var(--bg-sidebar)" />
+              </svg>
+            </ToolbarButton>
           </div>
         </div>
         <ThreadList selectedSid={selectedSid} onSelect={setSelectedSid} />
@@ -62,7 +86,8 @@ export default function AppShell() {
             await fetch("/api/logout", { method: "POST" });
             window.location.href = "/login";
           }}
-          className="border-t border-neutral-200 px-4 py-2 text-left text-xs text-neutral-400 hover:text-neutral-600 dark:border-neutral-800"
+          className="px-4 py-2.5 text-left text-[11px] text-[color:var(--text-secondary)] transition-colors hover:text-foreground"
+          style={{ borderTop: "1px solid var(--hairline)" }}
         >
           Sign out
         </button>
@@ -71,10 +96,15 @@ export default function AppShell() {
       {selected ? (
         <ConversationView key={selected.sid} conversation={selected} />
       ) : (
-        <div className="flex flex-1 items-center justify-center text-neutral-400">
-          {status === "loading"
-            ? "Connecting…"
-            : "Select a conversation or start a new one"}
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+          <p className="text-[15px] font-semibold text-[color:var(--text-secondary)]">
+            {status === "loading" ? "Connecting…" : "No Conversation Selected"}
+          </p>
+          {status !== "loading" && (
+            <p className="text-[13px] text-[color:var(--text-secondary)]">
+              Choose a conversation or compose a new message
+            </p>
+          )}
         </div>
       )}
 

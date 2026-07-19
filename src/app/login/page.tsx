@@ -27,35 +27,52 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-100 dark:bg-neutral-950">
+    <main
+      className="flex min-h-screen items-center justify-center"
+      style={{
+        background:
+          "radial-gradient(1200px 800px at 50% -10%, rgba(10,122,255,0.12), transparent 60%), var(--bg-main)",
+      }}
+    >
       <form
         onSubmit={submit}
-        className="w-full max-w-xs rounded-2xl bg-white p-8 shadow-sm dark:bg-neutral-900"
+        className="w-full max-w-[320px] rounded-[26px] p-9 text-center shadow-xl backdrop-blur-2xl"
+        style={{
+          background: "var(--bg-sidebar)",
+          border: "1px solid var(--hairline)",
+        }}
       >
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-b from-sky-400 to-blue-600 text-3xl">
-            💬
-          </div>
-          <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
-            Tribe Harbor Phone
-          </h1>
-          <p className="text-sm text-neutral-500">Trifecta Benefits</p>
+        <div
+          className="mx-auto mb-4 flex h-[68px] w-[68px] items-center justify-center rounded-[17px] shadow-lg"
+          style={{
+            background: "linear-gradient(180deg, #5ac8fa 0%, #0a7aff 100%)",
+          }}
+        >
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
+            <path d="M12 3C6.8 3 2.6 6.6 2.6 11c0 2.5 1.3 4.7 3.4 6.2-.1 1-.6 2.1-1.5 3 1.8-.1 3.3-.7 4.4-1.5 1 .3 2 .4 3.1.4 5.2 0 9.4-3.6 9.4-8S17.2 3 12 3Z" />
+          </svg>
         </div>
+        <h1 className="text-[19px] font-semibold tracking-tight">
+          Tribe Harbor Phone
+        </h1>
+        <p className="mb-7 text-[13px] text-[color:var(--text-secondary)]">
+          Trifecta Benefits
+        </p>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
           autoFocus
-          className="mb-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+          className="mb-3 w-full rounded-[10px] bg-[color:var(--field)] px-3.5 py-2.5 text-center text-[15px] outline-none ring-[#0a7aff]/60 transition-shadow focus:ring-2 placeholder:text-[color:var(--text-secondary)]"
         />
-        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+        {error && <p className="mb-3 text-[13px] text-[#ff3b30]">{error}</p>}
         <button
           type="submit"
           disabled={busy || !password}
-          className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="w-full rounded-[10px] bg-[#0a7aff] py-2.5 text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Signing in…" : "Sign In"}
         </button>
       </form>
     </main>

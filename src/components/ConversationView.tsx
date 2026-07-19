@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "@twilio/conversations";
 import { formatPhone } from "@/lib/format";
+import Avatar from "./Avatar";
 import { conversationTitle } from "./ThreadList";
 import { useTwilio } from "./TwilioProvider";
 
@@ -63,34 +64,51 @@ export default function ConversationView({
       .catch(() => setIsGroup(false));
   }, [conversation]);
 
+  const title = conversationTitle(conversation);
+
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col">
-      <header className="flex items-center border-b border-neutral-200 px-5 py-3 dark:border-neutral-800">
-        <h2 className="truncate font-semibold">
-          {conversationTitle(conversation)}
-        </h2>
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-[color:var(--bg-main)]">
+      <header
+        className="flex items-center gap-2.5 px-5 py-2.5 backdrop-blur-xl"
+        style={{ borderBottom: "1px solid var(--hairline)" }}
+      >
+        <Avatar name={title} size={30} />
+        <div className="min-w-0">
+          <h2 className="truncate text-[14px] font-semibold leading-tight">
+            {title}
+          </h2>
+          {isGroup && (
+            <p className="text-[11px] leading-tight text-[color:var(--text-secondary)]">
+              Group text
+            </p>
+          )}
+        </div>
       </header>
 
-      <div className="flex-1 space-y-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
         {messages.map((message, i) => {
           const mine = (message.author ?? "") === identity;
           const prev = messages[i - 1];
+          const next = messages[i + 1];
           const newSender = !prev || prev.author !== message.author;
+          const lastInRun = !next || next.author !== message.author;
           return (
             <div
               key={message.sid}
-              className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
+              className={`flex flex-col ${mine ? "items-end" : "items-start"} ${
+                newSender ? "mt-2.5" : "mt-[3px]"
+              }`}
             >
               {isGroup && !mine && newSender && (
-                <span className="mb-0.5 ml-3 mt-2 text-xs text-neutral-400">
+                <span className="mb-0.5 ml-3 text-[11px] text-[color:var(--text-secondary)]">
                   {authorLabel(message.author, identity)}
                 </span>
               )}
               <div
-                className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-4 py-2 text-[15px] ${
+                className={`imsg ${
                   mine
-                    ? "rounded-br-md bg-blue-600 text-white"
-                    : "rounded-bl-md bg-neutral-200 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+                    ? `imsg-me ${lastInRun ? "imsg-tail-me" : ""}`
+                    : `imsg-them ${lastInRun ? "imsg-tail-them" : ""}`
                 }`}
               >
                 {message.body ?? "Attachment"}
@@ -101,7 +119,7 @@ export default function ConversationView({
         <div ref={bottomRef} />
       </div>
 
-      <footer className="border-t border-neutral-200 p-3 dark:border-neutral-800">
+      <footer className="px-4 pb-4 pt-1">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -109,26 +127,39 @@ export default function ConversationView({
           }}
           className="flex items-end gap-2"
         >
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={1}
-            placeholder="Text Message"
-            className="max-h-32 flex-1 resize-none rounded-2xl border border-neutral-300 px-4 py-2 text-[15px] outline-none focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
-          />
+          <div
+            className="flex flex-1 items-end rounded-[20px] px-4 py-[7px]"
+            style={{ border: "1px solid var(--hairline)", background: "var(--bg-main)" }}
+          >
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              rows={1}
+              placeholder="Text Message · SMS"
+              className="max-h-32 w-full resize-none bg-transparent text-[15px] outline-none placeholder:text-[color:var(--text-secondary)]"
+            />
+          </div>
           <button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Send"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white transition hover:bg-blue-500 disabled:opacity-40"
+            className="mb-[2px] flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[#0a7aff] text-white transition-opacity hover:opacity-90 disabled:opacity-30"
           >
-            ↑
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 20V5M12 5l-6.5 6.5M12 5l6.5 6.5"
+                stroke="white"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </form>
       </footer>
